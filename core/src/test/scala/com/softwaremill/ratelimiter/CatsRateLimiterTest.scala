@@ -4,8 +4,6 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import org.scalatest.concurrent.IntegrationPatience
 
-import scala.concurrent.duration._
-
 class CatsRateLimiterTest extends RateLimiterTest with IntegrationPatience {
 
   doTest(
