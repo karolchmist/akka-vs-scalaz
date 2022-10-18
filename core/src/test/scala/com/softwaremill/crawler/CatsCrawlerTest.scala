@@ -2,7 +2,6 @@ package com.softwaremill.crawler
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import monix.eval.Task
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{FlatSpec, Matchers}
@@ -15,7 +14,7 @@ class CatsCrawlerTest extends FlatSpec with Matchers with CrawlerTestData with S
       interval = scaled(Span(150, Millis))
     )
 
-  for (testData <- testDataSets) {
+  for (testData: TestDataSet <- testDataSets) {
     it should s"crawl a test data set ${testData.name}" in {
       import testData._
 

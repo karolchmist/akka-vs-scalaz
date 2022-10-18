@@ -1,12 +1,12 @@
 package com.softwaremill.crawler
 
 import cats.effect.std.Queue
-import cats.effect.unsafe.implicits.global
 import cats.effect.{FiberIO, IO}
-import com.typesafe.scalalogging.StrictLogging
 import cats.implicits._
+import com.typesafe.scalalogging.StrictLogging
 
 object UsingMonix extends StrictLogging {
+  type MQueue[A] = Queue[IO, A]
 
   def crawl(crawlUrl: Url, http: Http[IO], parseLinks: String => List[Url]): IO[Map[Host, Int]] = {
 
@@ -42,10 +42,13 @@ object UsingMonix extends StrictLogging {
       def workerFor(data: CrawlerData, host: Host): IO[(CrawlerData, MQueue[Url])] = {
         data.workers.get(host) match {
           case None =>
-            val workerQueue = MQueue.make[Url]
-            worker(workerQueue, crawlerQueue).map { workerFiber =>
-              (data.copy(workers = data.workers + (host -> WorkerData(workerQueue, workerFiber))), workerQueue)
-            }
+            for {
+              workerQueue <- Queue.unbounded[IO, Url]
+              workerFiber <- worker(workerQueue, crawlerQueue)
+              newData = (data.copy(workers =
+                data.workers + (host -> WorkerData(workerQueue, workerFiber))), workerQueue
+              )
+            } yield newData
           case Some(wd) => IO.pure((data, wd.queue))
         }
       }
@@ -81,14 +84,15 @@ object UsingMonix extends StrictLogging {
         .start
     }
 
-    val crawlerQueue = MQueue.make[CrawlerMessage]
     for {
+      crawlerQueue <- Queue.unbounded[IO, CrawlerMessage]
       _ <- crawlerQueue.offer(Start(crawlUrl))
       r <- crawler(crawlerQueue, CrawlerData(Map(), Set(), Set(), Map()))
     } yield r
   }
 
   case class WorkerData(queue: MQueue[Url], fiber: FiberIO[Unit])
+
   case class CrawlerData(referenceCount: Map[Host, Int], visitedLinks: Set[Url], inProgress: Set[Url], workers: Map[Host, WorkerData])
 
   sealed trait CrawlerMessage
@@ -97,19 +101,6 @@ object UsingMonix extends StrictLogging {
     * Start the crawling process for the given URL. Should be sent only once.
     */
   case class Start(url: Url) extends CrawlerMessage
+
   case class CrawlResult(url: Url, links: List[Url]) extends CrawlerMessage
-
-  //
-
-  class MQueue[T](q: Queue[IO, T]) {
-    def take: IO[T] = {
-      IO.defer(q.take)
-    }
-    def offer(t: T): IO[Unit] = {
-      IO.defer(q.offer(t))
-    }
-  }
-  object MQueue {
-    def make[T]: MQueue[T] = new MQueue(Queue.unbounded[IO, T].unsafeRunSync())
-  }
 }
