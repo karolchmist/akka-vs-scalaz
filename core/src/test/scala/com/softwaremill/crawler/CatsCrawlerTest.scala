@@ -19,7 +19,7 @@ class CatsCrawlerTest extends FlatSpec with Matchers with CrawlerTestData with S
       import testData._
 
       val t = timed {
-        UsingMonix
+        UsingCats
           .crawl(startingUrl, url => IO(http(url)), parseLinks)
           .unsafeToFuture()
           .futureValue should be(expectedCounts)

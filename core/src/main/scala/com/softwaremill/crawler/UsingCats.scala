@@ -5,7 +5,7 @@ import cats.effect.{FiberIO, IO}
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
 
-object UsingMonix extends StrictLogging {
+object UsingCats extends StrictLogging {
   type MQueue[A] = Queue[IO, A]
 
   def crawl(crawlUrl: Url, http: Http[IO], parseLinks: String => List[Url]): IO[Map[Host, Int]] = {
@@ -45,9 +45,8 @@ object UsingMonix extends StrictLogging {
             for {
               workerQueue <- Queue.unbounded[IO, Url]
               workerFiber <- worker(workerQueue, crawlerQueue)
-              newData = (data.copy(workers =
-                data.workers + (host -> WorkerData(workerQueue, workerFiber))), workerQueue
-              )
+              data1 = data.copy(workers = data.workers + (host -> WorkerData(workerQueue, workerFiber)))
+              newData = (data1, workerQueue)
             } yield newData
           case Some(wd) => IO.pure((data, wd.queue))
         }
